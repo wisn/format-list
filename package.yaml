@@ -1,0 +1,48 @@
+name:                format-list
+version:             0.0.1.0
+github:              "wisn/format-list"
+license:             BSD3
+author:              "Wisnu Adi Nurcahyo"
+maintainer:          "wisn.adn@gmail.com"
+copyright:           "2018 Wisnu Adi Nurcahyo"
+
+extra-source-files:
+- README.md
+- CHANGELOG.md
+
+# Metadata used when publishing your package
+synopsis:            Format-Preserving List
+category:            Format
+
+# To avoid duplicated efforts in documentation and dealing with the
+# complications of embedding Haddock markup inside cabal files, it is
+# common to point users to the README.md file.
+description:         Format-Preserving List
+
+dependencies:
+- base >= 4.7 && < 5
+
+library:
+  source-dirs: src
+
+executables:
+  format-list:
+    main:                Main.hs
+    source-dirs:         app
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - format-list
+
+tests:
+  format-list-test:
+    main:                Spec.hs
+    source-dirs:         test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - format-list
