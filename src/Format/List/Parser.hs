@@ -31,15 +31,15 @@ parseToken tokens =
 
 qStart :: [Token] -> Parser -> Parser
 qStart [EOF]                    p = (fails. clearCol. clearRow) p
-qStart (EOL:xs)                 p = qStart xs (incRow p)
-qStart (OpenSquareBracket:xs)   p = qList xs (pushList (incCol p) (List Nil))
+qStart (EOL:xs)                 p = qStart xs $ (clearCol. incRow) p
+qStart (OpenSquareBracket:xs)   p = qList xs $ pushList (incCol p) (List Nil)
 qStart ((Whitespace _):xs)      p = qStart xs p
 qStart _                        p = fails p
 
 qList :: [Token] -> Parser -> Parser
 qList (CloseSquareBracket:xs) p = qEnd xs (incCol p)
-qList (EOL:xs)                p = qList xs (incRow p)
-qList ((Literal l):xs)        p = qLit xs (pushList (incCol p) (Cons l Nil))
+qList (EOL:xs)                p = qList xs $ (clearCol. incRow) p
+qList ((Literal l):xs)        p = qLit xs $ pushList (incCol p) (Cons l Nil)
 qList (OpenSquareBracket:xs)  p = qList xs (incCol p)
 qList ((Whitespace _):xs)     p = qList xs (incCol p)
 qList _                       p = fails p
@@ -52,9 +52,9 @@ qLit ((Whitespace _):xs)     p = qLit xs (incCol p)
 qLit _                       p = fails p
 
 qCon :: [Token] -> Parser -> Parser
-qCon (EOL:xs)               p = qCon xs (incRow p)
-qCon ((Literal l):xs)       p = qLit xs (pushList (incCol p) (Cons l Nil))
-qCon (OpenSquareBracket:xs) p = qList xs (pushList (incCol p) (List Nil))
+qCon (EOL:xs)               p = qCon xs $ (clearCol. incRow) p
+qCon ((Literal l):xs)       p = qLit xs $ pushList (incCol p) (Cons l Nil)
+qCon (OpenSquareBracket:xs) p = qList xs $ pushList (incCol p) (List Nil)
 qCon ((Whitespace _):xs)    p = qCon xs (incCol p)
 qCon _                      p = fails p
 
@@ -62,12 +62,12 @@ qEnd :: [Token] -> Parser -> Parser
 qEnd (CloseSquareBracket:xs) p = qEnd xs (incCol p)
 qEnd (Comma:xs)              p = qCon xs (incCol p)
 qEnd [EOF]                   p = p
-qEnd (EOL:xs)                p = qEnd xs (incRow p)
+qEnd (EOL:xs)                p = qEnd xs $ (clearCol. incRow) p
 qEnd ((Whitespace _):xs)     p = qEnd xs (incCol p)
 qEnd _                       p = fails p
 
 clearCol :: Parser -> Parser
-clearCol p = p { col = 0 }
+clearCol p = p { col = 1 }
 
 getCol :: Parser -> Int
 getCol (Parser { col = c }) = c
@@ -82,7 +82,7 @@ pushList :: Parser -> List -> Parser
 pushList p t = p { list = push (getList p) t }
 
 clearRow :: Parser -> Parser
-clearRow p = p { row = 0 }
+clearRow p = p { row = 1 }
 
 getRow :: Parser -> Int
 getRow (Parser { row = r }) = r
