@@ -14,6 +14,7 @@ data Parser = Parser
             , col :: Int
             , list :: List
             , row :: Int
+            , tokens :: [Token]
             , valid :: Bool
             }
 
@@ -33,13 +34,16 @@ parseToken tokens =
 
 qStart :: [Token] -> Parser -> Parser
 qStart [EOF] p
-    = (fails. clearCol. clearRow) p
+    = fails p
 qStart (EOL:xs) p
-    = qStart xs $ (clearCol. incRow) p
+    = qStart xs $ pushToken EOL (newLine p)
 qStart (OpenSquareBracket:xs) p
-    = qList xs $ pushList ((incBrackets. incCol) p) (List Nil)
-qStart ((Whitespace _):xs) p
-    = qStart xs p
+    = qList xs $ operate parserUpdate
+    where
+      operate = clearToken. incBrackets
+      parserUpdate = pushList (List nil $ getToken p) p
+qStart t@((Whitespace _):xs) p
+    = qStart xs $ pushToken (head t) (incCol p)
 qStart _ p
     = fails p
 
@@ -47,25 +51,31 @@ qList :: [Token] -> Parser -> Parser
 qList _ p@(Parser { valid = False })
     = p
 qList (CloseSquareBracket:xs) p
-    = qEnd xs ((decBrackets. incCol) p)
+    = qEnd xs $ decBrackets p
 qList (EOL:xs) p
-    = qList xs $ (clearCol. incRow) p
+    = qList xs $ pushToken EOL (newLine p)
 qList ((Literal l):xs) p
-    = qLit xs $ pushList (incCol p) (Cons l Nil)
+    = qLit xs $ operate parserUpdate
+    where
+      operate = clearToken. incCol
+      parserUpdate = pushList (Cons (Element l) nil $ getToken p) p
 qList (OpenSquareBracket:xs) p
-    = qList xs ((incBrackets. incCol) p)
-qList ((Whitespace _):xs) p
-    = qList xs (incCol p)
+    = qList xs $ operate parserUpdate
+    where
+      operate = clearToken. incBrackets
+      parserUpdate = pushList (List nil $ getToken p) p
+qList t@((Whitespace _):xs) p
+    = qList xs $ pushToken (head t) (incCol p)
 qList _ p
     = fails p
 
 qLit :: [Token] -> Parser -> Parser
 qLit (CloseSquareBracket:xs) p
-    = qEnd xs ((decBrackets. incCol) p)
+    = qEnd xs $ decBrackets p
 qLit (Comma:xs) p
     = qCon xs (incCol p)
 qLit (EOL:xs) p
-    = qLit xs (incRow p)
+    = qLit xs (newLine p)
 qLit ((Whitespace _):xs) p
     = qLit xs (incCol p)
 qLit _ p
@@ -73,11 +83,11 @@ qLit _ p
 
 qCon :: [Token] -> Parser -> Parser
 qCon (EOL:xs) p
-    = qCon xs $ (clearCol. incRow) p
+    = qCon xs (newLine p)
 qCon ((Literal l):xs) p
-    = qLit xs $ pushList (incCol p) (Cons l Nil)
+    = qLit xs $ incCol $ pushList (cons (Element l)) p
 qCon (OpenSquareBracket:xs) p
-    = qList xs $ pushList ((incBrackets. incCol) p) (List Nil)
+    = qList xs $ incBrackets $ pushList (list' nil) p
 qCon ((Whitespace _):xs) p
     = qCon xs (incCol p)
 qCon _ p
@@ -87,13 +97,13 @@ qEnd :: [Token] -> Parser -> Parser
 qEnd _ p@(Parser { valid = False })
     = p
 qEnd (CloseSquareBracket:xs) p
-    = qEnd xs ((decBrackets. incCol) p)
+    = qEnd xs (decBrackets p)
 qEnd (Comma:xs) p
     = if (getBrackets p) == 0 then fails p else qCon xs (incCol p)
 qEnd [EOF] p
-    = p
+    = setToken (getToken p) p
 qEnd (EOL:xs) p
-    = qEnd xs $ (clearCol. incRow) p
+    = qEnd xs (newLine p)
 qEnd ((Whitespace _):xs) p
     = qEnd xs (incCol p)
 qEnd _ p
@@ -107,14 +117,14 @@ incBrackets p =
     let brackets = getBrackets p
     in if brackets < 0
         then fails p
-        else p { brackets = brackets + 1 }
+        else incCol (p { brackets = brackets + 1 })
 
 decBrackets :: Parser -> Parser
 decBrackets p =
     let brackets = getBrackets p
     in if brackets < 0
         then fails p
-        else p { brackets = brackets - 1 }
+        else incCol (p { brackets = brackets - 1 })
 
 clearCol :: Parser -> Parser
 clearCol p = p { col = 1 }
@@ -128,8 +138,8 @@ incCol p = p { col = (getCol p) + 1 }
 getList :: Parser -> List
 getList (Parser { list = l }) = l
 
-pushList :: Parser -> List -> Parser
-pushList p t = p { list = push (getList p) t }
+pushList :: List -> Parser -> Parser
+pushList l p = p { list = push (getBrackets p) l (getList p) }
 
 clearRow :: Parser -> Parser
 clearRow p = p { row = 1 }
@@ -140,16 +150,41 @@ getRow (Parser { row = r }) = r
 incRow :: Parser -> Parser
 incRow p = p { row = (getRow p) + 1 }
 
+newLine :: Parser -> Parser
+newLine = incRow. clearCol
+
+clearToken :: Parser -> Parser
+clearToken p = p { tokens = [] }
+
+getToken :: Parser -> [Token]
+getToken (Parser { tokens = t }) = t
+
+pushToken :: Token -> Parser -> Parser
+pushToken t p = p { tokens = (getToken p) ++ [t] }
+
+setToken :: [Token] -> Parser -> Parser
+setToken t p = p { tokens = t }
+
 isValid :: Parser -> Bool
 isValid (Parser { valid = v }) = v
 
 fails :: Parser -> Parser
 fails p = p { valid = False }
 
+nil :: List
+nil = Nil []
+
+cons :: List -> List
+cons l = Cons l nil []
+
+list' :: List -> List
+list' l = List l []
+
 initParser :: Parser
 initParser = Parser { brackets = 0
                     , col = 1
-                    , list = Nil
+                    , list = nil
                     , row = 1
+                    , tokens = []
                     , valid = True
                     }

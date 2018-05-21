@@ -13,12 +13,16 @@ data Token = CloseSquareBracket
            | Whitespace Int
            deriving (Eq, Show)
 
-data List = Nil
-          | List List
-          | Cons String List
+data List = Cons List List [Token]
+          | Element String
+          | List List [Token]
+          | Nil [Token]
 
 instance Show List where
-  show Nil          = []
-  show (List l)     = "List (" ++ show l ++ ")"
-  show (Cons e Nil) = "Cons " ++ e
-  show (Cons e l)   = "Cons " ++ e ++ ", " ++ show l
+  show (Nil _)                       = []
+  show (Element e)                   = e
+  show (List l _)                    = "List (" ++ show l ++ ")"
+  -- show (Cons l@(List _ _) (Nil _) _) = show l
+  -- show (Cons l@(List _ _) r _)       = show l ++ ", " ++ show r
+  show (Cons l (Nil _) _)            = "Cons " ++ show l
+  show (Cons l r _)                  = "Cons " ++ show l ++ ", " ++ show r
